@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/boltdb/bolt"
+	"encoding/json"
 	"fmt"
 	"time"
-	"gateway/model"
-	"encoding/json"
+
+	"github.com/boltdb/bolt"
+	"github.com/driver005/payment/model"
 )
 
 var rootBucket = []byte("DB")

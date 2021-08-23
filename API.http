@@ -1,0 +1,115 @@
+
+@host = http://127.0.0.1:8000
+
+
+GET {{host}}/v1/accounts/create HTTP/1.1
+content-type: application/json
+
+{
+  "id": "4667607",
+  "available": 0,
+  "blocked": 0,
+  "deposited": 0,
+  "withdrawn": 0,
+  "currency": "GBP",
+  "card_name": "Mr Payment",
+  "card_type": "VISA",
+  "card_number": 4667607,
+  "card_expiry_month": 2,
+  "card_expiry_year": 23,
+  "card_security_code": 547,
+  "statement": null,
+  "creation_time": "2021-08-19T01:25:58.399901093+02:00"
+}
+
+###
+
+POST {{host}}/v1/accounts/deposit HTTP/1.1
+content-type: application/json
+ 
+{
+ 	"id" : "4670570",
+ 	"amount":1000
+}
+
+
+
+### 
+
+POST {{host}}/v1/accounts/detail HTTP/1.1
+content-type: application/json
+
+{
+	"id" : "4667607"
+}
+
+{
+  "id": "4667607",
+  "available": 1000,
+  "blocked": 0,
+  "deposited": 0,
+  "withdrawn": 0,
+  "currency": "GBP",
+  "card_name": "Mr Payment",
+  "card_type": "VISA",
+  "card_number": 4667607,
+  "card_expiry_month": 2,
+  "card_expiry_year": 23,
+  "card_security_code": 547,
+  "statement": null,
+  "creation_time": "2021-08-19T01:25:58.399901093+02:00"
+}
+
+
+###
+
+POST {{host}}/v1/accounts/statement HTTP/1.1
+content-type: application/json
+
+{
+	"id" : "4666744292130045"
+}
+
+{
+  "statement": null
+}
+
+### 
+
+POST {{host}}/v1/payments/authorization HTTP/1.1
+From: 4670570
+content-type: application/json
+
+{
+	"orderId" : "123",
+	"amount":900,
+	"currency":"GBP",
+	"card_name":"Mr Payment",
+	"card_number":4667607,
+	"card_expiry_month": 10,
+	"card_expiry_year" : 19,
+	"card_security_code" : 916
+}
+
+{
+  "referenceId": "1f58bdf6-e15a-40e6-9fc7-67b543949656",
+  "status": "5",
+  "description": "Do Not Honour"
+}
+
+
+###
+
+POST {{host}}/v1/payments/capture/4670570 HTTP/1.1
+From: 4670570
+content-type: application/json
+
+{
+ 	"id" : "4670570",
+ 	"amount":1000
+}
+
+###
+
+POST https://www.ory.sh/oauth2/token HTTP/1.1
+content-type: application/json

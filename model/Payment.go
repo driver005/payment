@@ -2,8 +2,9 @@ package model
 
 import (
 	"time"
-	"gateway/dto"
-	"gateway/constant"
+
+	"github.com/driver005/payment/constant"
+	"github.com/driver005/payment/dto"
 	"github.com/google/uuid"
 )
 

@@ -1,56 +1,47 @@
 package main
 
 import (
-	"net/http"
-	"io/ioutil"
-	"gateway/dto"
 	"encoding/json"
-	"gateway/model"
-	"github.com/gorilla/mux"
-	"github.com/boltdb/bolt"
 	"fmt"
-	"gateway/constant"
+	"net/http"
+
+	"github.com/boltdb/bolt"
+	"github.com/driver005/payment/constant"
+	"github.com/driver005/payment/dto"
+	"github.com/driver005/payment/model"
+	"github.com/julienschmidt/httprouter"
 )
 
 var db *bolt.DB
 
-func setupRouter(dbConfig *bolt.DB) *mux.Router {
+func setupRouter(dbConfig *bolt.DB) *httprouter.Router {
 
 	// Database Config
 	db = dbConfig
 
 	// Routes
-	router := mux.NewRouter()
+	router := httprouter.New()
 
 	// Payments Routes
-	router.HandleFunc("/v1/payments/authorization", PaymentsAuthorization).Methods("POST")
-	router.HandleFunc("/v1/payments/capture/{authorization_id}", PaymentsCapture).Methods("POST")
-	router.HandleFunc("/v1/payments/reversal/{authorization_id}", PaymentsReversal).Methods("POST")
-	router.HandleFunc("/v1/payments/refund/{capture_id}", PaymentsRefund).Methods("POST")
+	router.POST("/v1/payments/authorization", PaymentsAuthorization)
+	router.POST("/v1/payments/capture/:authorization_id", PaymentsCapture)
+	router.POST("/v1/payments/reversal/:authorization_id", PaymentsReversal)
+	router.POST("/v1/payments/refund/:capture_id", PaymentsRefund)
 
 	// Accounts Routes
-	router.HandleFunc("/v1/accounts/create", AccountsCreate).Methods("GET")
-	router.HandleFunc("/v1/accounts/deposit", AccountsDeposit).Methods("POST")
-	router.HandleFunc("/v1/accounts/detail", AccountsDetail).Methods("POST")
-	router.HandleFunc("/v1/accounts/statement", AccountsStatement).Methods("POST")
+	router.GET("/v1/accounts/create", AccountsCreate)
+	router.POST("/v1/accounts/deposit", AccountsDeposit)
+	router.POST("/v1/accounts/detail", AccountsDetail)
+	router.POST("/v1/accounts/statement", AccountsStatement)
 
 	return router
 }
 
-func PaymentsAuthorization(w http.ResponseWriter, r *http.Request) {
-
-	// Read body
-	b, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	// Unmarshal
+func PaymentsAuthorization(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var authorizationRequestDto dto.AuthorizationRequestDto
-	err = json.Unmarshal(b, &authorizationRequestDto)
-	if err != nil {
+
+	// Body to json
+	if err := json.NewDecoder(r.Body).Decode(&authorizationRequestDto); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -132,27 +123,13 @@ func PaymentsAuthorization(w http.ResponseWriter, r *http.Request) {
 	personalAccount.Statement = append(personalAccount.Statement, payment.Id)
 	saveAccount(db, personalAccount)
 	json.NewEncoder(w).Encode(dto.CreatePaymentResponseDto(payment.Id, "0", "Approved"))
-
-	return
 }
 
-func PaymentsCapture(w http.ResponseWriter, r *http.Request) {
-
-	// Read Path Parameters
-	vars := mux.Vars(r)
-
-	// Read body
-	b, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	// Unmarshal
+func PaymentsCapture(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	var successiveRequestDto dto.SuccessiveRequestDto
-	err = json.Unmarshal(b, &successiveRequestDto)
-	if err != nil {
+
+	// Body to json
+	if err := json.NewDecoder(r.Body).Decode(&successiveRequestDto); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -160,7 +137,7 @@ func PaymentsCapture(w http.ResponseWriter, r *http.Request) {
 
 	// Basic Validation - Business Account
 	var businessAccountId = r.Header.Get("From")
-	var referenceId = vars["authorization_id"]
+	var referenceId = p.ByName("authorization_id")
 	var businessAccount model.Account
 	if len(businessAccountId) > 0 {
 		businessAccount, _ = getAccount(db, businessAccountId)
@@ -229,30 +206,19 @@ func PaymentsCapture(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(dto.CreatePaymentResponseDto(successivePayment.Id, "12", "Invalid Transaction"))
 }
 
-func PaymentsReversal(w http.ResponseWriter, r *http.Request) {
-
-	// Read Path Parameters
-	vars := mux.Vars(r)
-
-	// Read body
-	b, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	// Unmarshal
+func PaymentsReversal(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	var successiveRequestDto dto.SuccessiveRequestDto
-	err = json.Unmarshal(b, &successiveRequestDto)
-	if err != nil {
+
+	// Body to json
+	if err := json.NewDecoder(r.Body).Decode(&successiveRequestDto); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
 	w.Header().Set("content-type", "application/json")
 
 	// Basic Validation - Business Account
-	var referenceId = vars["authorization_id"]
+	var referenceId = p.ByName("authorization_id")
 	var businessAccountId = r.Header.Get("From")
 	var businessAccount model.Account
 	if len(businessAccountId) > 0 {
@@ -322,29 +288,19 @@ func PaymentsReversal(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(dto.CreatePaymentResponseDto(successivePayment.Id, "12", "Invalid Transaction"))
 }
 
-func PaymentsRefund(w http.ResponseWriter, r *http.Request) {
-	// Read Path Parameters
-	vars := mux.Vars(r)
-
-	// Read body
-	b, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	// Unmarshal
+func PaymentsRefund(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	var successiveRequestDto dto.SuccessiveRequestDto
-	err = json.Unmarshal(b, &successiveRequestDto)
-	if err != nil {
+
+	// Body to json
+	if err := json.NewDecoder(r.Body).Decode(&successiveRequestDto); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
 	w.Header().Set("content-type", "application/json")
 
 	// Basic Validation - Business Account
-	var referenceId = vars["capture_id"]
+	var referenceId = p.ByName("capture_id")
 	var businessAccountId = r.Header.Get("From")
 	var businessAccount model.Account
 	if len(businessAccountId) > 0 {
@@ -413,7 +369,7 @@ func PaymentsRefund(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(dto.CreatePaymentResponseDto(successivePayment.Id, "12", "Invalid Transaction"))
 }
 
-func AccountsCreate(w http.ResponseWriter, r *http.Request) {
+func AccountsCreate(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 
 	// Create Account
 	var account = model.GenerateAccount()
@@ -425,20 +381,11 @@ func AccountsCreate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(account)
 }
 
-func AccountsDeposit(w http.ResponseWriter, r *http.Request) {
-
-	// Read body
-	b, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	// Unmarshal
+func AccountsDeposit(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var accountRequestDto dto.AccountRequestDto
-	err = json.Unmarshal(b, &accountRequestDto)
-	if err != nil {
+
+	// Body to json
+	if err := json.NewDecoder(r.Body).Decode(&accountRequestDto); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -459,20 +406,11 @@ func AccountsDeposit(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(accountResponseDto)
 }
 
-func AccountsDetail(w http.ResponseWriter, r *http.Request) {
-
-	// Read body
-	b, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	// Unmarshal
+func AccountsDetail(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var accountRequestDto dto.AccountRequestDto
-	err = json.Unmarshal(b, &accountRequestDto)
-	if err != nil {
+
+	// Body to json
+	if err := json.NewDecoder(r.Body).Decode(&accountRequestDto); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -488,20 +426,11 @@ func AccountsDetail(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(account)
 }
 
-func AccountsStatement(w http.ResponseWriter, r *http.Request) {
-
-	// Read body
-	b, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	// Unmarshal
+func AccountsStatement(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var accountRequestDto dto.AccountRequestDto
-	err = json.Unmarshal(b, &accountRequestDto)
-	if err != nil {
+
+	// Body to json
+	if err := json.NewDecoder(r.Body).Decode(&accountRequestDto); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}

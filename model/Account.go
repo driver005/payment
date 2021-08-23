@@ -1,9 +1,9 @@
 package model
 
 import (
-	"time"
-	"math/rand"
 	"fmt"
+	"math/rand"
+	"time"
 )
 
 type Account struct {
@@ -25,7 +25,7 @@ type Account struct {
 
 func GenerateAccount() Account {
 
-	var identifier = rand.Intn(4666778181156223-4666000000000000) + 4666000000000000
+	var identifier = rand.Intn(4666) + 4666000
 	var account Account
 
 	account.Id = fmt.Sprintf("%v", identifier)

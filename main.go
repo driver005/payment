@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -25,6 +26,6 @@ func main() {
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
-
+	fmt.Printf("start server at %v", "127.0.0.1:8000 \n")
 	log.Fatal(srv.ListenAndServe())
 }
